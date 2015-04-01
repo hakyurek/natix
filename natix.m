@@ -194,8 +194,9 @@ edges_mask = filtered_mean_edges > edges_treshold;
 
 toc;
 
+%{
 %%% Filling
-nagative = imcomplement(filtered_mean_edges);
+negative = imcomplement(filtered_mean_edges);
 
 %
 % Image
@@ -214,6 +215,7 @@ title('RGB image | Filtered RGB image');
 clear edges_cube mean_edges w signature_depth;
 %click;
 pause(.25);
+%}
 
 %{
 
