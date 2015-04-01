@@ -7,7 +7,7 @@ images_no = 1;
 
 for par_image_id = images_no;       % numer obrazu
     
-par_wideness = 1;       % szeroko¶æ filtra
+par_wideness = 2;       % szeroko¶æ filtra
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -22,11 +22,8 @@ signature_depth = size(ncube,3);
 layer_count = numel(ncube) / signature_depth;
 toc;
 
-%
 % Image
-%
-
-imwrite(image(mean_RGB_from_hyperspectral(ncube)), '00_image.png');
+imwrite(mean_RGB_from_hyperspectral(ncube), '00_image.png');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -38,20 +35,17 @@ edges_cube = zeros(size(ncube));
 
 % Budowa czterowymiarowej kostki
 index = 1;
-huge_stack_length = (1+par_wideness*2)^3;
+huge_stack_length = (1+par_wideness*2)^2;
 huge_stack = zeros( size(ncube,1),...
                     size(ncube,2),...
                     size(ncube,3),...
                     huge_stack_length);
 for x=-par_wideness:par_wideness
     for y=-par_wideness:par_wideness
-        for z=-par_wideness:par_wideness
-        huge_stack(:,:,:,index) = circshift(ncube,[x,y,z]);
-        index = index+1;
-        end
+            huge_stack(:,:,:,index) = circshift(ncube,[x,y]);
+            index = index+1;
     end
 end
-
 
 % Analiza kostki
 edges_cube = max(huge_stack,[],4)-min(huge_stack,[],4);
@@ -64,24 +58,8 @@ mean_edges = mean(edges_cube,3);
 
 toc;
 
-%
 % Image
-%
-
-image(cat(3,mean_edges,mean_edges,mean_edges));
-title('Edges detection');
-
-%%%%STAGES
-image(cat(3,mean_edges,mean_edges,mean_edges));
-imwrite(mean_edges,'00_edge_mask.png');
-%click;
-%%%%STAGES
-
-% Clean-up
-clear   wideness index huge_stack huge_stack_length treshold x y w ...
-        par_wideness;
-%click;
-pause(.25);
+imwrite(mean_edges,'01_edge_mask.png');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -113,9 +91,7 @@ antifilter = find(highpassed > 0);
 
 toc;
 
-%
 % Image
-%
 highpassed_mean = zeros(1,signature_depth);
 highpassed_dinamics = zeros(1,signature_depth);
 highpassed_union = zeros(1,signature_depth);
@@ -154,13 +130,6 @@ for i=1:6
     hold off;
 end
 
-% Clean-up
-clear   antifilter dinamics dinamics_highpass entropy highpassed_mean i ...
-        highpassed highpassed_dinamics information union_highpass w ...
-        highpassed_union noise mean_highpass;
-pause(.25);
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Filtering
@@ -178,216 +147,37 @@ edges_mask = filtered_mean_edges > edges_treshold;
 
 toc;
 
-%{
 %%% Filling
-negative = imcomplement(filtered_mean_edges);
+% http://www.mathworks.com/help/images/ref/imfill.html
+% http://blogs.mathworks.com/steve/2008/08/05/filling-small-holes/
+negative = imcomplement(edges_mask);
+filled = imfill(negative, 'holes');
+holes = filled & ~negative;
+bigholes = bwareaopen(holes, 200);
+smallholes = holes & ~bigholes;
+new = negative | smallholes;
 
-%
 % Image
-%
+imwrite(negative, '02_negative.png');
+imwrite(filled, '03_filled_negative.png');
+imwrite(new, '04_new.png');
 
-subplot 121;
-image(cat(3,[mean_edges; filtered_mean_edges],[mean_edges; filtered_mean_edges],[mean_edges; filtered_mean_edges]));
-title('Edges | Filtered edges');
+%%% Labelling
+% http://www.mathworks.com/help/images/ref/bwlabel.html
+labels = bwlabel(new);
+labels_no = max(max(labels));
+centroids = regionprops(labels,'centroid');
 
-subplot 122;
-image(cat(3,[nagative; filtered_mean_edges],[negative; filtered_mean_edges],[mean_edges; filtered_mean_edges]));
-title('RGB image | Filtered RGB image');
+fprintf('%i labels', labels_no);
 
-% Clean-up
-%clear ncube;
-clear edges_cube mean_edges w signature_depth;
-%click;
-pause(.25);
-%}
+
+
+% Image
+% http://www.mathworks.com/help/images/ref/labelmatrix.html
+imwrite(label2rgb(labels), '05_labels.png');
+
 
 %{
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%
-%%% Metrics
-%%%
-fprintf('# Wyliczanie metryk\n  '); tic;
-% RGB wyliczone z trzech kwantów przekonwertowane na HSV\n');
-rgb_image = mean_RGB_from_hyperspectral(filtered_ncube);
-[metric_hue, metric_saturation ,metric_volume] = hsv_metrics_from_RGB_image(rgb_image, filtered_mean_edges); 
-
-% Minimum
-[metric_minimal, metric_minimal_idx]= min(filtered_ncube,[],3);
-metric_minimal_idx = metric_minimal_idx / max(max(metric_minimal_idx));
-
-% Maksimum
-[metric_maximal, metric_maximal_idx] = max(filtered_ncube,[],3);
-metric_maximal_idx = metric_maximal_idx / max(max(metric_maximal_idx));
-
-% ¦rednia
-metric_mean = mean(filtered_ncube,3);
-
-% Mediana
-metric_median = median(filtered_ncube,3);
-
-% Maximum - minimum
-metric_maxmin = metric_maximal - metric_minimal;
-metric_maxmin_idx = abs(metric_maximal_idx - metric_minimal_idx);
-toc;
-
-metrics(:,:,1) = metric_hue;
-metrics(:,:,2) = metric_saturation;
-metrics(:,:,3) = metric_volume;
-metrics(:,:,4) = metric_minimal;
-metrics(:,:,5) = metric_minimal_idx;
-metrics(:,:,6) = metric_maximal;
-metrics(:,:,7) = metric_maximal_idx;
-metrics(:,:,8) = metric_mean;
-metrics(:,:,9) = metric_median;
-metrics(:,:,10) = metric_maxmin;
-metrics(:,:,11) = metric_maxmin_idx;
-
-
-%%%%STAGES
-subplot 111;
-image(cat(3,metric_mean,metric_mean,metric_mean));
-imwrite(metric_mean,'03_example_metric_8.png');
-
-pause(.25);
-%%%%STAGES
-
-%
-% Image
-%
-background = ones(  size(filtered_ncube,1)*4, ...
-                    size(filtered_ncube,2)*3, ...
-                    3 );
-index = 1;
-for x=0:3
-    for y=0:2
-        hsv_image = HSV_image_with_metric_and_borders(metrics(:,:,index),...
-                                                      filtered_mean_edges);
-                                                  
-
-        rgb_image = hsv2rgb(hsv_image);
-        
-
-        width = size(filtered_ncube,1);
-        height = size(filtered_ncube,2);
-        
-        background((1+x*width):((x+1)*width),(1+y*height):((y+1)*height),:) = rgb_image;
-        
-        index = index + 1;
-        if index > 11
-            break
-        end
-        
-    end
-end
-
-subplot 111;
-imwrite(background, 'met.png');
-image(background);
-title('Metrics');
-
-% Clean-up
-clear   metric_hue metric_maximaal metric_maximaal_idx metric_maxmin ...
-        metric_maxmin_idx metric_median metric_meean metric_minimaal ...
-        metric_minimaal_idx metric_saturation metric_volume background ...
-        height width x y w rgb_image hsv_image index;
-%click;
-pause(.25);
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%
-%%% Normalization
-%%%
-
-
-if norm
-fprintf('# Normalizacja metryk\n'); tic;
-
-for i=1:11
-    metric = metrics(:,:,i); 
-        
-    subplot 221;
-    image(cat(3,metric,metric,metric));
-    
-    %temp = metric;
-    
-    med = median(median(metric));
-    
-    if smart_norm
-        temp = metric - edges_mask;
-        temp(temp<0) = med;
-    else
-        temp = metric;    
-    end
-    
-    subplot 222;
-    image(cat(3,temp,temp,temp));
-    
-    minnn = min(min(temp));
-    maxxx = max(max(temp));
-    
-    fprintf('#Met %02i | min %f | max %f | med %f\n', i, minnn, maxxx, med);
-    
-    Anorm = (metric - minnn)/(maxxx - minnn);
-    
-    subplot 223;
-    %image(cat(3,Anorm,Anorm,Anorm));
-    %click;
-    
-    
-    metrics(:,:,i) = Anorm;
-end
-end
-
-toc;
-
-
-%%%%STAGES
-subplot 111;
-%image(metrics(:,:,7:9));
-imwrite(metrics(:,:,8),'04_nomalized_metric_8.png');
-%click;
-pause(.25);
-%%%%STAGES
-
-%
-% Image
-%
-background = ones(  size(filtered_ncube,1)*4, ...
-                    size(filtered_ncube,2)*3, ...
-                    3 );
-index = 1;
-for x=0:3
-    for y=0:2
-        hsv_image = HSV_image_with_metric_and_borders(metrics(:,:,index),...
-                                                      filtered_mean_edges);
-                                                  
-
-        rgb_image = hsv2rgb(hsv_image);
-        
-
-        width = size(filtered_ncube,1);
-        height = size(filtered_ncube,2);
-        
-        background((1+x*width):((x+1)*width),(1+y*height):((y+1)*height),:) = rgb_image;
-        
-        index = index + 1;
-        if index > 11
-            break
-        end
-        
-    end
-end
-
-subplot 111;
-imwrite(background, 'met_norm.png');
-image(background);
-title('Normalized metrics');
-
-%click;
-pause(.25);
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
