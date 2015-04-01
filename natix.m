@@ -1,4 +1,3 @@
-% Wild pigs
 clear; 
 clf;
 
@@ -8,15 +7,7 @@ images_no = 1;
 
 for par_image_id = images_no;       % numer obrazu
     
-posters_no = [16];
 par_wideness = 1;       % szeroko¶æ filtra
-
-par_posterization_similarity = .99;
-par_show_posterization = false;
-par_concrete_percent = 0.03;
-
-norm = 1;
-smart_norm = 1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -30,19 +21,12 @@ ncube_god_classification = hyper_class(par_image_id);
 signature_depth = size(ncube,3);
 layer_count = numel(ncube) / signature_depth;
 toc;
+
 %
 % Image
 %
 
-subplot 111;
-image(mean_RGB_from_hyperspectral(ncube));
-title(sprintf('image %i\n%i layers\n%i pixels per layer', ... 
-                par_image_id, signature_depth, layer_count));
-
-% Clean-up
-%clear par_image_id;
-%click;
-pause(.25);
+imwrite(image(mean_RGB_from_hyperspectral(ncube)), '00_image.png');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -194,8 +178,9 @@ edges_mask = filtered_mean_edges > edges_treshold;
 
 toc;
 
+%{
 %%% Filling
-nagative = imcomplement(filtered_mean_edges);
+negative = imcomplement(filtered_mean_edges);
 
 %
 % Image
@@ -214,6 +199,7 @@ title('RGB image | Filtered RGB image');
 clear edges_cube mean_edges w signature_depth;
 %click;
 pause(.25);
+%}
 
 %{
 
