@@ -2,7 +2,7 @@ clear;
 clf;
 
 % Konfiguracja
-for par_image_id = [1];       % numer obrazu
+for par_image_id = [1:2];
 par_wideness = 1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -10,13 +10,9 @@ par_wideness = 1;
 %%% Wczytywanie obrazu
 %%%
 
-fprintf('\n# Wczytywanie obrazu\t'); 
-tic;
 ncube = hyper_ncube(par_image_id);
-ncube_god_classification = hyper_class(par_image_id);
+%ncube_god_classification = hyper_class(par_image_id);
 signature_depth = size(ncube,3);
-layer_count = numel(ncube) / signature_depth;
-toc;
 
 imwrite(mean_RGB_from_hyperspectral(ncube), '00_image.png'); % Poka
 
