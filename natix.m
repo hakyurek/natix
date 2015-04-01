@@ -2,12 +2,8 @@ clear;
 clf;
 
 % Konfiguracja
-
-images_no = [1:6];
-
-for par_image_id = images_no;       % numer obrazu
-    
-par_wideness = 2;       % szeroko¶æ filtra
+for par_image_id = [1];       % numer obrazu
+par_wideness = 1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -22,8 +18,7 @@ signature_depth = size(ncube,3);
 layer_count = numel(ncube) / signature_depth;
 toc;
 
-% Image
-imwrite(mean_RGB_from_hyperspectral(ncube), '00_image.png');
+imwrite(mean_RGB_from_hyperspectral(ncube), '00_image.png'); % Poka
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -52,89 +47,17 @@ edges_cube = max(huge_stack,[],4)-min(huge_stack,[],4);
 treshold = mean(mean(mean(edges_cube)));
 
 edges_cube(edges_cube < treshold) = 0;
-edges_cube(edges_cube > treshold) = 1;
-
-mean_edges = mean(edges_cube,3);
+edges_cube(edges_cube >= treshold) = 1;
 
 toc;
-
-% Image
-imwrite(mean_edges,'01_edge_mask.png');
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%
-%%% Tworzenie filtra
-%%%
-
-fprintf('# Tworzenie filtra\t');tic;
-
-% Ustalanie entropii
-entropy = reshape(sum(sum(edges_cube))/layer_count,[],signature_depth);
-
-% Filtr górnoprzepustowy entropii
-mean_highpass = find(entropy>mean(entropy));
-
-% Wyznaczanie dynamiki
-dinamics = abs(circshift(entropy,[0,1]) - entropy);
-
-% Filtr górnoprzepustowy dynamiki
-dinamics_highpass = find(dinamics>mean(dinamics));
-
-% Unia filtrów
-union_highpass = union(dinamics_highpass,mean_highpass);
-
-% Filtr
-highpassed = zeros(1,signature_depth);
-highpassed(union_highpass) = 1;
-filter = find(highpassed < 1);
-antifilter = find(highpassed > 0);
-
-toc;
-
-% Image
-highpassed_mean = zeros(1,signature_depth);
-highpassed_dinamics = zeros(1,signature_depth);
-highpassed_union = zeros(1,signature_depth);
-
-highpassed_mean(mean_highpass) = 1;
-highpassed_dinamics(dinamics_highpass) = 1;
-highpassed_union(union_highpass) = 1;
-
-information = entropy(filter);
-noise = entropy(antifilter);
-
-subplot 611; plot(entropy,'k'); 
-%title('Entropy');
-
-subplot 612; plot(highpassed_mean ,'k'); 
-%title('Mean entropy highpass');
-
-subplot 613; plot(dinamics, 'k'); 
-%title('Dinamics');
-
-subplot 614; plot(highpassed_dinamics , 'k'); 
-%title('Mean dinamics highpass');
-
-subplot 615; plot(highpassed_union, 'k'); 
-%title('Union');
-
-subplot 616; hold on;
-plot([information noise], 'r'); plot(information, 'k');
-%title('Information & noise separation');
-%legend('Noise', 'Information', [0 0 450 230]);
-
-for i=1:6
-    subplot(6,1,i);
-    axis off;
-    axis([-10 signature_depth+10 -0.1 1.1]);
-    hold off;
-end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Filtering
 %%%
 fprintf('# Filtrowanie\t');tic;
+
+filter = hs_filter(edges_cube);
 
 filtered_edges_cube = edges_cube(:,:,filter);
 filtered_mean_edges = mean(filtered_edges_cube,3);
@@ -145,6 +68,8 @@ filtered_signature_depth = size(filtered_ncube,3);
 edges_treshold = mean(mean(filtered_mean_edges));
 edges_mask = filtered_mean_edges > edges_treshold;
 
+imwrite(mean(edges_cube,3), '01_edge_mask.png');
+imwrite(edges_mask, '01_edge_mask_f.png');
 toc;
 
 %%% Filling
