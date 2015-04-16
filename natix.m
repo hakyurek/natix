@@ -2,7 +2,7 @@ clear;
 clf;
 
 % Konfiguracja
-for par_image_id = [1:2];
+for par_image_id = [1];
 par_wideness = 1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -16,10 +16,7 @@ signature_depth = size(ncube,3);
 
 imwrite(mean_RGB_from_hyperspectral(ncube), '00_image.png'); % Poka
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%
 %%% Detekcja granic
-%%%
 
 fprintf('# Detekcja granic\t');tic;
 edges_cube = zeros(size(ncube));
@@ -86,13 +83,43 @@ imwrite(new, '04_new.png');
 %%% Labelling
 % http://www.mathworks.com/help/images/ref/bwlabel.html
 labels = bwlabel(new);
-labels_no = max(max(labels));
-centroids = regionprops(labels,'centroid');
+flat_labels = reshape(labels,1,[]);
+labels_no = max(flat_labels);
 
 fprintf('%i labels\n', labels_no);
 
 % Image
 % http://www.mathworks.com/help/images/ref/labelmatrix.html
 imwrite(label2rgb(labels), '05_labels.png');
+
+%%% Remove all small regions
+one_percent = (size(labels,1)*size(labels,2))/200;
+for label = 1:labels_no
+    amount = sum(flat_labels==label);
+    if amount < one_percent
+        flat_labels(flat_labels==label) = 0;
+    else
+        fprintf('lab %i [%i]\n', label, amount);
+    end
+end
+
+for destination_label = 1:labels_no
+    amount = sum(flat_labels == destination_label);
+    if amount == 0
+        for source_label = labels_no:-1:destination_label
+            amount = sum(flat_labels == source_label);
+            if amount > 0
+                fprintf('remap %i -> %i\n', source_label, destination_label);
+                flat_labels(flat_labels == source_label) = destination_label;
+                break;
+            end
+        end
+    end
+end
+labels_no = max(flat_labels);
+labels = reshape(flat_labels,[],size(labels,2));
+imwrite(label2rgb(labels), '06_clean_labels.png');
+
+fprintf('We have %i basic labels\n', labels_no);
 
 end
