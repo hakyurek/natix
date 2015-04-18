@@ -29,7 +29,7 @@ switch DB
         fil=610;
         col=340;
         X=reshape(paviaU,fil*col,103);
-        load PaviaU_gt.mat;
+        load ~/data/PaviaU_gt.mat;
         Y=double(reshape(paviaU_gt,fil*col,1));
         depth = 103;
     case 4
@@ -38,7 +38,7 @@ switch DB
         fil=145;
         col=145;
         X=reshape(indian_pines_corrected,fil*col,200);
-        load Indian_pines_gt.mat;
+        load ~/data/Indian_pines_gt.mat;
         Y=double(reshape(indian_pines_gt,fil*col,1));
         depth = 103;
     case 5
@@ -47,7 +47,7 @@ switch DB
         fil=1476;
         col=256;
         X=reshape(Botswana,fil*col,145);
-        load Botswana_gt.mat;
+        load ~/data/Botswana_gt.mat;
         Y=double(reshape(Botswana_gt,fil*col,1));
         depth = 145;
         
@@ -57,7 +57,7 @@ switch DB
         fil=512;
         col=614;
         X=reshape(KSC,fil*col,176);
-        load KSC_gt.mat;
+        load ~/data/KSC_gt.mat;
         Y=double(reshape(KSC_gt,fil*col,1));
         depth = 176;
     otherwise

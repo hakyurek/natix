@@ -1,4 +1,4 @@
-function [ tmp ] = natix(image_id, wideness, similarity_treshold, amount)
+function [ tmp tmp2 tmp3 ] = natix(image_id, wideness, similarity_treshold, amount)
 
 %%% Wczytywanie obrazu
 
@@ -18,6 +18,8 @@ pause(.5);
 fprintf('# Border detection\n');
 
 edges_cube = fedges_cube(cube, wideness);
+
+subplot 132;
 imshow(mean(edges_cube,3));
 title('Flattered borders cube');
 pause(.5);
@@ -26,51 +28,37 @@ pause(.5);
 %%%
 %%% Filtering
 %%%
-fprintf('# Filtrowanie\t');tic;
+fprintf('# Filtering\n');
 
-fprintf('# Tworzenie filtra\n');tic;
-
-% Ustalanie entropii
-entropy = reshape(sum(sum( edges_cube )) / pixel_count, [] ,depth);
-% Filtr górnoprzepustowy entropii
-mean_highpass = find(entropy>mean(entropy));
-% Wyznaczanie dynamiki
-dinamics = abs(circshift(entropy,[0,1]) - entropy);
-% Filtr górnoprzepustowy dynamiki
-dinamics_highpass = find(dinamics>mean(dinamics));
-% Unia filtrów
-union_highpass = union(dinamics_highpass,mean_highpass);
-% Filtr
-highpassed = zeros(1,depth);
-highpassed(union_highpass) = 1;
-filter = find(highpassed < 1);
-antifilter = find(highpassed > 0);
+filter = ffilter(edges_cube);
 
 tmp = filter;
-%{
-toc;
-
-filtered_edges_cube = edges_cube(:,:,filter);
-filtered_mean_edges = mean(filtered_edges_cube,3);
-filtered_ncube = ncube(:,:,filter);
-
-filtered_signature_depth = size(filtered_ncube,3);
-
-edges_treshold = mean(mean(filtered_mean_edges));
-edges_mask = filtered_mean_edges > edges_treshold;
-
-imwrite(mean(edges_cube,3), '01_edge_mask.png');
-imwrite(edges_mask, '01_edge_mask_f.png');
 
 subplot 131;
 imshow(mean(edges_cube,3));
+title('Before');
+
+edges_cube = edges_cube(:,:,filter);
+mean_edges = mean(edges_cube,3);
+cube = cube(:,:,filter);
+depth = size(cube,3);
+
 subplot 132;
-imshow(mean(filtered_edges_cube,3));
+imshow(mean(edges_cube,3));
+title('After');
+
+edges_treshold = mean(mean(mean_edges));
+edges_mask = mean_edges > edges_treshold;
+
 subplot 133;
 imshow(edges_mask);
-toc;
-click;
+title('Mask');
+
+pause(.5);
+
 %%% Filling
+
+fprintf('# Filling\n');
 % http://www.mathworks.com/help/images/ref/imfill.html
 % http://blogs.mathworks.com/steve/2008/08/05/filling-small-holes/
 negative = imcomplement(edges_mask);
@@ -80,138 +68,149 @@ bigholes = bwareaopen(holes, 200);
 smallholes = holes & ~bigholes;
 new = negative | smallholes;
 
-% Image
-imwrite(negative, '02_negative.png');
-imwrite(filled, '03_filled_negative.png');
-imwrite(new, '04_new.png');
-
 subplot 131;
 imshow(negative);
+title('1');
 subplot 132;
 imshow(filled);
+title('2');
 subplot 133;
 imshow(new);
-click;
+title('3');
+pause(.5);
 
 %%% Labelling
-% http://www.mathworks.com/help/images/ref/bwlabel.html
+fprintf('# Labelling\n');
+
 labels = bwlabel(new);
-flat_labels = reshape(labels,1,[]);
-labels_no = max(flat_labels);
+labels_no = max(max(labels));
 
 fprintf('%i labels\n', labels_no);
 
-% Image
-% http://www.mathworks.com/help/images/ref/labelmatrix.html
-imwrite(label2rgb(labels), '05_labels.png');
-
-subplot 111;
+subplot 131;
 imshow(label2rgb(labels));
-click;
-
+title('Region labels');
+pause(.5);
 
 %%% Remove all small regions
-one_percent = (size(labels,1)*size(labels,2))/par_amount;
+one_percent = (size(labels,1)*size(labels,2)) / amount;
 for label = 1:labels_no
-    amount = sum(flat_labels==label);
+    amount = sum(sum(labels==label));
     if amount < one_percent
-        flat_labels(flat_labels==label) = 0;
-    else
-        fprintf('lab %i [%i]\n', label, amount);
+        labels(labels==label) = 0;
     end
 end
 
-for destination_label = 1:labels_no
-    amount = sum(flat_labels == destination_label);
-    if amount == 0
-        for source_label = labels_no:-1:destination_label
-            amount = sum(flat_labels == source_label);
-            if amount > 0
-                fprintf('remap %i -> %i\n', source_label, destination_label);
-                flat_labels(flat_labels == source_label) = destination_label;
-                break;
-            end
-        end
-    end
-end
-
-fprintf('Establishing labels\n');
-labels_no = max(flat_labels);
-labels = reshape(flat_labels,[],size(labels,2));
-imwrite(label2rgb(labels), '06_clean_labels.png');
+subplot 132;
 imshow(label2rgb(labels));
-fprintf('We have %i basic labels\n', labels_no);
-click;
-% Porównywanie sygnatur etykiet
-flattern_ncube = reshape(filtered_ncube,layer_count,filtered_signature_depth);
+title('Cut off the small regions');
+pause(.5);
+
+%%% Remap
+
+fprintf('# Remap\n');
+labels = remap(labels);
+
+labels_no = max(max(labels));
+fprintf('%i labels\n', labels_no);
+
+subplot 133;
+imshow(label2rgb(labels));
+title('Remap');
+pause(.5);
+
+
+%%% Signature merging
+
+fprintf('# Signature merging\n');
+tmp = cube;
+flattern_cube = reshape(cube,pixel_count,depth);
 
 for i=1:labels_no
     mask = labels == i;
-    flattern_mask = reshape(mask,layer_count,1);
-    masked = flattern_ncube(flattern_mask,:);
+    flattern_mask = reshape(mask,pixel_count,1);
+    masked = flattern_cube(flattern_mask,:);
     signature = mean(masked);
-    
-    %subplot 121;
-    %imshow(mask);
-    
+      
     for j=1:(i-1)
        another_mask = labels == j;
-       another_flattern_mask = reshape(another_mask,layer_count,1);
-       another_signature = mean(flattern_ncube(another_flattern_mask,:));
-       %subplot 122;
+       another_flattern_mask = reshape(another_mask,pixel_count,1);
+       another_signature = mean(flattern_cube(another_flattern_mask,:));
        
        distance = mean(abs(signature-another_signature));
        
-       %plot(signature,'r');
-       %hold on
-       %plot(another_signature,'b');
-       %hold off;
-       %title(distance);
-       
-       %ylim([0 1]);
-       
-       if(distance < par_similarity_treshold)
-           %fprintf('We are family! %i and %i\n', i, j);
+       if(distance < similarity_treshold)
            labels(labels==i) = j;
            break;
        end
-       %pause(.5);
-    end
-    
-    fprintf('Etykieta %i\n', i);
-    %pause(1);
+    end   
 end
 
-imwrite(label2rgb(labels), '07_joined_labels.png');
+subplot 132;
 imshow(label2rgb(labels));
-%}
+title('Merged signatures');
+pause(.5);
 
-%{
-flat_labels = reshape(labels,1,[]);
-labels_no = max(flat_labels);
+labels = remap(labels);
+subplot 133;
+imshow(label2rgb(labels));
+
+title('Remap');
+pause(.5);
+
+labels_no = max(max(labels));
 
 fprintf('%i labels\n', labels_no);
 
-for destination_label = 1:labels_no
-    amount = sum(flat_labels == destination_label);
-    if amount == 0
-        for source_label = labels_no:-1:destination_label
-            amount = sum(flat_labels == source_label);
-            if amount > 0
-                fprintf('remap %i -> %i\n', source_label, destination_label);
-                flat_labels(flat_labels == source_label) = destination_label;
-                break;
-            end
-        end
-    end
+foo = zeros(size(cube,1),size(cube,2),labels_no);
+for label = 1:labels_no
+    mask = labels == label;
+    subplot 132;
+    imshow(mask);
+    title(label);
+
+    flattern_mask = reshape(mask, pixel_count, 1);
+    masked = flattern_cube(flattern_mask,:);
+    signature = mean(masked);
+
+    subplot 131;
+    plot(signature);
+    ylim([0 1]);
+    title('Signature');
+
+    distance = abs(bsxfun(@minus,flattern_cube,signature));
+    layer = reshape(distance,size(cube,1),size(cube,2),[]);
+    layer = 1 - max(layer,[],3);
+
+%    layer = (layer - min2(layer))/(max2(layer) - min2(layer));
+    
+    foo(:,:,label) = layer;
+
+    subplot 133;
+    imshow(layer);
+
+    pause(.25);
 end
 
-fprintf('Establishing labels\n');
-labels_no = max(flat_labels);
-labels = reshape(flat_labels,[],size(labels,2));
-imwrite(label2rgb(labels), '08_clean_labels.png');
-imshow(label2rgb(labels));
-fprintf('We have new %i basic labels\n', labels_no);
-click;
+[ saturation hue ] = max(foo,[],3); 
+tmp = foo;
+tmp2 = saturation;
+tmp3 = hue;
 
-%}
+hsv_image = ones(size(cube,1), size(cube,2), 3);
+hsv_image(:,:,1) = hue / labels_no;
+hsv_image(:,:,3) = mean(cube,3);
+hsv_image(:,:,2) = saturation;
+
+rgb_image = hsv2rgb(hsv_image);
+
+subplot 111;
+imshow(rgb_image);
+
+tmp = rgb_image;
+tmp2 = ground_truth;
+
+imwrite(tmp, 'r.png');
+imwrite(label2rgb(tmp2), 'g.png');
+
+pause(5);
