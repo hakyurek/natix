@@ -11,21 +11,21 @@ function [X Y fil col depth] = hyper_load(DB)
 switch DB
     case 1
         % SALINAS C
-        load salinasC.mat
+        load ~/data/salinasC.mat
         fil=217;
         col=512;
         Y=Y-1;
         depth = 224;
     case 2
         % SALINAS A
-        load salinasA.mat
+        load ~/data/salinasA.mat
         fil=86;
         col=83;
         Y=Y-1;
         depth = 224;
     case 3
         % PAVIA UNIV
-        load PaviaU.mat;
+        load ~/data/PaviaU.mat;
         fil=610;
         col=340;
         X=reshape(paviaU,fil*col,103);
@@ -34,7 +34,7 @@ switch DB
         depth = 103;
     case 4
         % INDIAN PINES
-        load Indian_pines_corrected.mat;
+        load ~/data/Indian_pines_corrected.mat;
         fil=145;
         col=145;
         X=reshape(indian_pines_corrected,fil*col,200);
@@ -43,7 +43,7 @@ switch DB
         depth = 103;
     case 5
         % BOTSWANA
-        load Botswana.mat;
+        load ~/data/Botswana.mat;
         fil=1476;
         col=256;
         X=reshape(Botswana,fil*col,145);
@@ -53,7 +53,7 @@ switch DB
         
     case 6
         % KSC
-        load KSC.mat;
+        load ~/data/KSC.mat;
         fil=512;
         col=614;
         X=reshape(KSC,fil*col,176);

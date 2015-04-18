@@ -1,53 +1,26 @@
-clear;
-clf;
+function [ tmp ] = natix(image_id, wideness, similarity_treshold, amount)
 
-% Konfiguracja
-for par_image_id = [1];
-par_wideness = 2;
-par_similarity_treshold = 0.02;
-par_amount = 1000;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%
 %%% Wczytywanie obrazu
-%%%
 
-ncube = hyper_ncube(par_image_id);
-ncube_god_classification = hyper_class(par_image_id);
-signature_depth = size(ncube,3);
-layer_count = numel(ncube) / signature_depth;
+fprintf('# Loading an image\n');
 
-imwrite(mean_RGB_from_hyperspectral(ncube), '00_image.png'); % Poka
-imshow(mean_RGB_from_hyperspectral(ncube));
-click;
+cube = hyper_ncube(image_id);
+ground_truth = hyper_class(image_id);
+depth = size(cube, 3);
+pixel_count = numel(cube) / depth;
+
+imshow(false_color(cube));
+title('False-color image');
+pause(.5);
 
 %%% Detekcja granic
 
-fprintf('# Detekcja granic\t');tic;
-edges_cube = zeros(size(ncube));
+fprintf('# Border detection\n');
 
-% Budowa czterowymiarowej kostki
-index = 1;
-huge_stack_length = (1+par_wideness*2)^2;
-huge_stack = zeros( size(ncube,1),...
-                    size(ncube,2),...
-                    size(ncube,3),...
-                    huge_stack_length);
-for x=-par_wideness:par_wideness
-    for y=-par_wideness:par_wideness
-            huge_stack(:,:,:,index) = circshift(ncube,[x,y]);
-            index = index+1;
-    end
-end
-
-% Analiza kostki
-edges_cube = max(huge_stack,[],4)-min(huge_stack,[],4);
-treshold = mean(mean(mean(edges_cube)));
-
-edges_cube(edges_cube < treshold) = 0;
-edges_cube(edges_cube >= treshold) = 1;
-
-toc;
+edges_cube = fedges_cube(cube, wideness);
+imshow(mean(edges_cube,3));
+title('Flattered borders cube');
+pause(.5);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -58,26 +31,23 @@ fprintf('# Filtrowanie\t');tic;
 fprintf('# Tworzenie filtra\n');tic;
 
 % Ustalanie entropii
-entropy = reshape(sum(sum(edges_cube))/layer_count,[],signature_depth);
-
+entropy = reshape(sum(sum( edges_cube )) / pixel_count, [] ,depth);
 % Filtr górnoprzepustowy entropii
 mean_highpass = find(entropy>mean(entropy));
-
 % Wyznaczanie dynamiki
 dinamics = abs(circshift(entropy,[0,1]) - entropy);
-
 % Filtr górnoprzepustowy dynamiki
 dinamics_highpass = find(dinamics>mean(dinamics));
-
 % Unia filtrów
 union_highpass = union(dinamics_highpass,mean_highpass);
-
 % Filtr
-highpassed = zeros(1,signature_depth);
+highpassed = zeros(1,depth);
 highpassed(union_highpass) = 1;
 filter = find(highpassed < 1);
 antifilter = find(highpassed > 0);
 
+tmp = filter;
+%{
 toc;
 
 filtered_edges_cube = edges_cube(:,:,filter);
@@ -214,10 +184,9 @@ end
 
 imwrite(label2rgb(labels), '07_joined_labels.png');
 imshow(label2rgb(labels));
+%}
 
-end
-
-
+%{
 flat_labels = reshape(labels,1,[]);
 labels_no = max(flat_labels);
 
@@ -244,3 +213,5 @@ imwrite(label2rgb(labels), '08_clean_labels.png');
 imshow(label2rgb(labels));
 fprintf('We have new %i basic labels\n', labels_no);
 click;
+
+%}
