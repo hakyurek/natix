@@ -1,4 +1,4 @@
-function [ tmp tmp2 tmp3 ] = natix(image_id, wideness, similarity_treshold, amount)
+function [ tmp tmp2 tmp3 ] = natix(image_id, wideness, similarity_treshold, amount, blur_size)
 
 %%% Wczytywanie obrazu
 
@@ -39,7 +39,7 @@ imshow(mean(edges_cube,3));
 title('Before');
 
 edges_cube = edges_cube(:,:,filter);
-mean_edges = mean(edges_cube,3);
+mean_edges = max(edges_cube,[],3);
 cube = cube(:,:,filter);
 depth = size(cube,3);
 
@@ -165,7 +165,7 @@ fprintf('%i labels\n', labels_no);
 foo = zeros(size(cube,1),size(cube,2),labels_no);
 for label = 1:labels_no
     mask = labels == label;
-    subplot 132;
+    subplot 142;
     imshow(mask);
     title(label);
 
@@ -173,23 +173,34 @@ for label = 1:labels_no
     masked = flattern_cube(flattern_mask,:);
     signature = mean(masked);
 
-    subplot 131;
+    subplot 141;
     plot(signature);
     ylim([0 1]);
     title('Signature');
 
     distance = abs(bsxfun(@minus,flattern_cube,signature));
     layer = reshape(distance,size(cube,1),size(cube,2),[]);
-    layer = 1 - max(layer,[],3);
+    
+%    layer = (layer - min2(layer)) / (max2(layer) - min2(layer));
+    layer = 1-max(layer,[],3);
 
 %    layer = (layer - min2(layer))/(max2(layer) - min2(layer));
-    
+   
+
+    layer(layer < .9) = layer(layer < .9) / 3;
+    % Blur it!
+    h = fspecial('disk',blur_size);
+    layer2 = imfilter(layer,h,'replicate');
     foo(:,:,label) = layer;
 
-    subplot 133;
+    subplot 143;
     imshow(layer);
 
-    pause(.25);
+    subplot 144;
+    imshow(layer2);
+    pause(.5);
+
+    foo(:,:,label) = layer2;
 end
 
 [ saturation hue ] = max(foo,[],3); 
@@ -199,12 +210,12 @@ tmp3 = hue;
 
 hsv_image = ones(size(cube,1), size(cube,2), 3);
 hsv_image(:,:,1) = hue / labels_no;
-hsv_image(:,:,3) = mean(cube,3);
-hsv_image(:,:,2) = saturation;
+hsv_image(:,:,3) = max(cube,[],3);
+hsv_image(:,:,3) = hsv_image(:,:,3)*.7;%saturation;
 
 rgb_image = hsv2rgb(hsv_image);
 
-subplot 111;
+subplot 131;
 imshow(rgb_image);
 
 tmp = rgb_image;
@@ -213,4 +224,19 @@ tmp2 = ground_truth;
 imwrite(tmp, 'r.png');
 imwrite(label2rgb(tmp2), 'g.png');
 
-pause(5);
+pause(1);
+learning_labels = hue;
+labels_no = max(max(hue));
+for label = 1:labels_no
+    fprintf('label %i\n', label);
+    a = mode(mode(ground_truth(hue == label)));
+    fprintf('value %i\n', a);
+    learning_labels(learning_labels==label) = a;
+end
+
+subplot 132;
+imshow(label2rgb(ground_truth));
+subplot 133;
+imshow(label2rgb(learning_labels));
+
+imwrite(label2rgb(learning_labels), 'gg.png');
