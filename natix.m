@@ -191,6 +191,8 @@ for label = 1:labels_no
     % Blur it!
     h = fspecial('disk',blur_size);
     layer2 = imfilter(layer,h,'replicate');
+    % Or diff?
+    layer2 = anisodiff2D(layer,5,1/7,30,2);
     foo(:,:,label) = layer;
 
     subplot 143;
@@ -200,13 +202,16 @@ for label = 1:labels_no
     imshow(layer2);
     pause(.5);
 
+    tmp = layer;
+    tmp2 = layer2;
+    tmp3 = 0;
     foo(:,:,label) = layer2;
 end
 
 [ saturation hue ] = max(foo,[],3); 
-tmp = foo;
-tmp2 = saturation;
-tmp3 = hue;
+%tmp = foo;
+%tmp2 = saturation;
+%tmp3 = hue;
 
 hsv_image = ones(size(cube,1), size(cube,2), 3);
 hsv_image(:,:,1) = hue / labels_no;
@@ -218,19 +223,19 @@ rgb_image = hsv2rgb(hsv_image);
 subplot 131;
 imshow(rgb_image);
 
-tmp = rgb_image;
-tmp2 = ground_truth;
+%tmp = rgb_image;
+%tmp2 = ground_truth;
 
-imwrite(tmp, 'r.png');
-imwrite(label2rgb(tmp2), 'g.png');
+imwrite(rgb_image, 'r.png');
+imwrite(label2rgb(ground_truth), 'g.png');
 
 pause(1);
+
+% Przyłączenie etykiet z ground truth
 learning_labels = hue;
 labels_no = max(max(hue));
 for label = 1:labels_no
-    fprintf('label %i\n', label);
     a = mode(mode(ground_truth(hue == label)));
-    fprintf('value %i\n', a);
     learning_labels(learning_labels==label) = a;
 end
 
