@@ -321,9 +321,68 @@ hsv_image(:,:,1) = hue/labels_no;
 
 rgb_image = hsv2rgb(hsv_image);
 %}
+%%% Signature-neighbour merging
+hue = remap(hue);
+labels_no = max(max(hue));
 
-subplot 111;
+
+subplot 132;
+imshow(label2rgb(hue));
+subplot 133;
+imshow(label2rgb(ground_truth));
+for label = 2:labels_no
+    mono = hue == label;
+    flattern_mono = reshape(mono,pixel_count,1);
+    masked = flattern_cube(flattern_mono,:);
+    signature = mean(masked);
+
+%    a = ones([100 100]);
+%    a(1:50,:) = label;
+%    a(1,1) = labels_no;
+%    a(1,2) = 1;
+
+    for label_second = label-1:-1:1
+        mono_second = hue == label_second;
+        flattern_mono = reshape(mono_second,pixel_count,1);
+        masked = flattern_cube(flattern_mono,:);
+        signature_second = mean(masked);
+
+ %       a(51:100,:) = label_second;
+
+ %       subplot 131;
+ %       imshow(label2rgb(a));
+ %       pause(0.00001);
+
+
+        stereo = mono + mono_second;
+        stereo = bwlabel(stereo);
+
+        regions_no = max(max(stereo));
+
+
+        if(regions_no == 1)
+            distance = mean(abs(signature-signature_second));
+            if(distance<similarity_treshold)
+                fprintf('[%ivs%i] MERGE!\n', label, label_second);
+                hue(hue==label_second) = label;
+                subplot 132;
+                imshow(label2rgb(hue));
+                pause(.125);
+            end
+        end
+%        pause(.25);
+    end
+
+
+end
+
+subplot 121;
 imshow(label2rgb(hue));
 title('Visum!');
+
+subplot 122;
+imshow(label2rgb(ground_truth));
+title('GT');
+
 
 imwrite(rgb_image,'visum.png');
