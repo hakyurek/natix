@@ -59,7 +59,6 @@ imshow(mean_edges > et2);
 
 pause(10);
 %}
-
 cube = cube(:,:,filter);
 depth = size(cube,3);
 
@@ -181,7 +180,7 @@ pause(.125);
 labels_no = max(max(labels));
 
 fprintf('%i labels\n', labels_no);
-
+%%% Blurred labeling
 foo = zeros(size(cube,1),size(cube,2),labels_no);
 for label = 1:labels_no
     mask = labels == label;
@@ -287,6 +286,7 @@ subplot 141;
 imshow(label2rgb(hue));
 
 % Przyłączenie etykiet z ground truth
+%{
 learning_labels = hue;
 c = hue;
 c(ground_truth == 0) = 0;
@@ -320,6 +320,7 @@ labels_no = max(max(hue));
 hsv_image(:,:,1) = hue/labels_no;
 
 rgb_image = hsv2rgb(hsv_image);
+%}
 
 subplot 111;
 imshow(label2rgb(hue));
