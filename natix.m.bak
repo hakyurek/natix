@@ -1,4 +1,4 @@
-function [ tmp tmp2 tmp3 ] = natix(image_id, wideness, similarity_treshold, amount, blur_size)
+function [ tmp tmp2 tmp3 ] = natix(image_id, wideness, similarity_treshold, st2, amount, blur_size)
 
 %%% Wczytywanie obrazu
 
@@ -10,7 +10,6 @@ depth = size(cube, 3);
 pixel_count = numel(cube) / depth;
 
 imshow(false_color(cube));
-imwrite(false_color(cube), 'false_color.png');
 title('False-color image');
 pause(.125);
 
@@ -22,7 +21,6 @@ edges_cube = fedges_cube(cube, wideness);
 
 subplot 132;
 imshow(mean(edges_cube,3));
-imwrite(mean(edges_cube,3), 'edges_cube.png');
 title('Flattered borders cube');
 pause(.125);
 
@@ -41,17 +39,48 @@ imshow(mean(edges_cube,3));
 title('Before');
 
 edges_cube = edges_cube(:,:,filter);
-
 mean_edges = max(edges_cube,[],3);
 
-imwrite(mean_edges,'filtered_mean_edges.png');
+% A gdyby tak rozmyć maskę? Popracujmy nad tym
+%{
+subplot 221;
+imshow(mean_edges);
+et1 = mean(mean(mean_edges));
+me1 = mean_edges;
+mean_edges = anisodiff2D(mean_edges,5,1/7,30,2); 
+subplot 222;
+imshow(mean_edges);
+et2 = mean(mean(mean_edges));
 
-mean_edges = anisodiff2D(mean_edges,blur_size,1/7,2,1);
+subplot 223;
+imshow(me1 > et1);
+subplot 224;
+imshow(mean_edges > et2);
 
-imwrite(mean_edges,'aniso_mean_edges.png');
-
+pause(10);
+%}
 cube = cube(:,:,filter);
 depth = size(cube,3);
+
+fprintf('NOW');
+fcube = reshape(cube,[],depth);
+subplot 111
+
+signatures = fcube(1,:);
+
+signatures = [signatures;fcube(300,:)];
+%for i=1:100%pixel_count
+%    a = fcube(i,:);
+%    plot(a);
+%    alpha(0.5);
+%end
+
+for i=1:size(signatures,1)
+    plot(signatures(i,:));
+    hold on;
+end
+hold off
+pause(5);
 
 subplot 132;
 imshow(mean(edges_cube,3));
@@ -64,9 +93,7 @@ subplot 133;
 imshow(edges_mask);
 title('Mask');
 
-imwrite(edges_mask,'edges_mask.png');
-
-pause(5.125);
+pause(.125);
 
 %%% Filling
 
@@ -88,7 +115,6 @@ imshow(filled);
 title('2');
 subplot 133;
 imshow(new);
-imwrite(new,'new.png');
 title('3');
 pause(.125);
 
@@ -102,7 +128,6 @@ fprintf('%i labels\n', labels_no);
 
 subplot 131;
 imshow(label2rgb(labels));
-imwrite(label2rgb(labels), 'region_labels.png');
 title('Region labels');
 pause(.125);
 
@@ -162,14 +187,12 @@ end
 
 subplot 132;
 imshow(label2rgb(labels));
-
 title('Merged signatures');
 pause(.125);
 
 labels = remap(labels);
 subplot 133;
 imshow(label2rgb(labels));
-imwrite(label2rgb(labels),'merged_signatures.png');
 
 title('Remap');
 pause(.125);
@@ -183,8 +206,6 @@ for label = 1:labels_no
     mask = labels == label;
     subplot 142;
     imshow(mask);
-    filename = sprintf('mask_0_%i.png',label);
-    imwrite(mask, filename);
     title(label);
 
     flattern_mask = reshape(mask, pixel_count, 1);
@@ -203,18 +224,14 @@ for label = 1:labels_no
 
     layer(layer < .9) = layer(layer < .9) / 3;
     % Or diff?
-    layer2 = anisodiff2D(layer,blur_size,1/7,30,2);
+    layer2 = anisodiff2D(layer,5,1/7,30,2);
     foo(:,:,label) = layer;
 
     subplot 143;
     imshow(layer);
-    filename = sprintf('mask_1_%i.png',label);
-    imwrite(layer, filename);
 
     subplot 144;
     imshow(layer2);
-    filename = sprintf('mask_2_%i.png',label);
-    imwrite(layer2, filename);
     pause(.125);
 
     tmp = layer;
@@ -237,7 +254,7 @@ rgb_image = hsv2rgb(hsv_image);
 
 subplot 131;
 imshow(label2rgb(hue));
-imwrite(label2rgb(hue), 'hue.png');
+
 labels_no = max(max(hue));
 index = labels_no + 1;
 
@@ -280,7 +297,8 @@ end
 %tmp = rgb_image;
 %tmp2 = ground_truth;
 
-imwrite(label2rgb(hue), 'separated.png');
+imwrite(rgb_image, 'r.png');
+imwrite(label2rgb(ground_truth), 'g.png');
 
 pause(.125);
 
@@ -364,7 +382,7 @@ for label = 2:labels_no
 
         if(regions_no == 1)
             distance = mean(abs(signature-signature_second));
-            if(distance<similarity_treshold)
+            if(distance<st2)
                 fprintf('[%ivs%i] MERGE!\n', label, label_second);
                 hue(hue==label_second) = label;
                 subplot 132;
@@ -380,13 +398,13 @@ end
 
 subplot 131;
 imshow(label2rgb(hue));
-imwrite(label2rgb(hue), 'region_merging.png');
 title('Visum!');
 
-e = hue;
-e(ground_truth==0)=0;
+d = hue;
+d(ground_truth == 0) = 0;
 subplot 132;
-imshow(label2rgb(e));
+imshow(label2rgb(d));
+title('BG out');
 
 subplot 133;
 imshow(label2rgb(ground_truth));
