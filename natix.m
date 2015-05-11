@@ -11,7 +11,7 @@ pixel_count = numel(cube) / depth;
 
 imshow(false_color(cube));
 title('False-color image');
-pause(.5);
+pause(.125);
 
 %%% Detekcja granic
 
@@ -22,7 +22,7 @@ edges_cube = fedges_cube(cube, wideness);
 subplot 132;
 imshow(mean(edges_cube,3));
 title('Flattered borders cube');
-pause(.5);
+pause(.125);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -40,6 +40,25 @@ title('Before');
 
 edges_cube = edges_cube(:,:,filter);
 mean_edges = max(edges_cube,[],3);
+
+% A gdyby tak rozmyć maskę? Popracujmy nad tym
+%{
+subplot 221;
+imshow(mean_edges);
+et1 = mean(mean(mean_edges));
+me1 = mean_edges;
+mean_edges = anisodiff2D(mean_edges,5,1/7,30,2); 
+subplot 222;
+imshow(mean_edges);
+et2 = mean(mean(mean_edges));
+
+subplot 223;
+imshow(me1 > et1);
+subplot 224;
+imshow(mean_edges > et2);
+
+pause(10);
+%}
 cube = cube(:,:,filter);
 depth = size(cube,3);
 
@@ -54,7 +73,7 @@ subplot 133;
 imshow(edges_mask);
 title('Mask');
 
-pause(.5);
+pause(.125);
 
 %%% Filling
 
@@ -77,7 +96,7 @@ title('2');
 subplot 133;
 imshow(new);
 title('3');
-pause(.5);
+pause(.125);
 
 %%% Labelling
 fprintf('# Labelling\n');
@@ -90,7 +109,7 @@ fprintf('%i labels\n', labels_no);
 subplot 131;
 imshow(label2rgb(labels));
 title('Region labels');
-pause(.5);
+pause(.125);
 
 %%% Remove all small regions
 one_percent = (size(labels,1)*size(labels,2)) / amount;
@@ -104,20 +123,20 @@ end
 subplot 132;
 imshow(label2rgb(labels));
 title('Cut off the small regions');
-pause(.5);
+pause(.125);
 
 %%% Remap
 
-fprintf('# Remap\n');
+fprintf('# Remap');
 labels = remap(labels);
-
+fprintf('.\n');
 labels_no = max(max(labels));
 fprintf('%i labels\n', labels_no);
 
 subplot 133;
 imshow(label2rgb(labels));
 title('Remap');
-pause(.5);
+pause(.125);
 
 
 %%% Signature merging
@@ -149,19 +168,19 @@ end
 subplot 132;
 imshow(label2rgb(labels));
 title('Merged signatures');
-pause(.5);
+pause(.125);
 
 labels = remap(labels);
 subplot 133;
 imshow(label2rgb(labels));
 
 title('Remap');
-pause(.5);
+pause(.125);
 
 labels_no = max(max(labels));
 
 fprintf('%i labels\n', labels_no);
-
+%%% Blurred labeling
 foo = zeros(size(cube,1),size(cube,2),labels_no);
 for label = 1:labels_no
     mask = labels == label;
@@ -181,16 +200,9 @@ for label = 1:labels_no
     distance = abs(bsxfun(@minus,flattern_cube,signature));
     layer = reshape(distance,size(cube,1),size(cube,2),[]);
     
-%    layer = (layer - min2(layer)) / (max2(layer) - min2(layer));
     layer = 1-max(layer,[],3);
 
-%    layer = (layer - min2(layer))/(max2(layer) - min2(layer));
-   
-
     layer(layer < .9) = layer(layer < .9) / 3;
-    % Blur it!
-    h = fspecial('disk',blur_size);
-    layer2 = imfilter(layer,h,'replicate');
     % Or diff?
     layer2 = anisodiff2D(layer,5,1/7,30,2);
     foo(:,:,label) = layer;
@@ -200,7 +212,7 @@ for label = 1:labels_no
 
     subplot 144;
     imshow(layer2);
-    pause(.5);
+    pause(.125);
 
     tmp = layer;
     tmp2 = layer2;
@@ -221,7 +233,46 @@ hsv_image(:,:,3) = hsv_image(:,:,3)*.7;%saturation;
 rgb_image = hsv2rgb(hsv_image);
 
 subplot 131;
-imshow(rgb_image);
+imshow(label2rgb(hue));
+
+labels_no = max(max(hue));
+index = labels_no + 1;
+
+% Analizujemy każdą etykietę
+% Jeśli ma rozłączne elementy, odrzucamy każdy mniejszy niż jeden procent obrazu
+% A z wszystkich pozostałych tworzymy nowe etykiety
+for label = 1:labels_no
+
+    mono = zeros(size(hue));
+    mono(hue==label) = 1;
+    mono_lab = bwlabel(mono);
+    explode_no = max(max(mono_lab));
+
+    for i = 1:explode_no
+        amount = sum(sum(mono_lab==i));
+        if amount < one_percent
+            hue(mono_lab==i) = 0;
+            mono_lab(mono_lab==i) = 0;
+        else
+            fprintf('\tnew layer[%i]\n', index);
+            hue(mono_lab==i) = index;
+            index = index + 1;
+        end
+    end
+    fprintf('\tlabel %i\n', label, explode_no);
+    
+    
+    subplot 132;
+    imshow(mono);
+
+    subplot 133;
+    imshow(label2rgb(mono_lab));
+
+    subplot 131;
+    imshow(label2rgb(hue));
+
+    pause(.125);
+end
 
 %tmp = rgb_image;
 %tmp2 = ground_truth;
@@ -229,19 +280,109 @@ imshow(rgb_image);
 imwrite(rgb_image, 'r.png');
 imwrite(label2rgb(ground_truth), 'g.png');
 
-pause(1);
+pause(.125);
+
+subplot 141;
+imshow(label2rgb(hue));
 
 % Przyłączenie etykiet z ground truth
+%{
 learning_labels = hue;
+c = hue;
+c(ground_truth == 0) = 0;
+subplot 142;
+imshow(label2rgb(c));
+
 labels_no = max(max(hue));
 for label = 1:labels_no
-    a = mode(mode(ground_truth(hue == label)));
-    learning_labels(learning_labels==label) = a;
-end
+    A = mode(ground_truth(c==label));
+    fprintf('\tlabel %i = %i\n', label, A);
+    c(c==label) = A;
 
-subplot 132;
+    subplot 143;
+    %imshow(
+
+    %pause(3);
+end
+tmp = hue;
+tmp2 = ground_truth;
+
+subplot 143;
 imshow(label2rgb(ground_truth));
-subplot 133;
-imshow(label2rgb(learning_labels));
+subplot 144;
+imshow(label2rgb(c));
 
 imwrite(label2rgb(learning_labels), 'gg.png');
+
+pause(.125)
+
+labels_no = max(max(hue));
+hsv_image(:,:,1) = hue/labels_no;
+
+rgb_image = hsv2rgb(hsv_image);
+%}
+%%% Signature-neighbour merging
+hue = remap(hue);
+labels_no = max(max(hue));
+
+
+subplot 132;
+imshow(label2rgb(hue));
+subplot 133;
+imshow(label2rgb(ground_truth));
+for label = 2:labels_no
+    mono = hue == label;
+    flattern_mono = reshape(mono,pixel_count,1);
+    masked = flattern_cube(flattern_mono,:);
+    signature = mean(masked);
+
+%    a = ones([100 100]);
+%    a(1:50,:) = label;
+%    a(1,1) = labels_no;
+%    a(1,2) = 1;
+
+    for label_second = label-1:-1:1
+        mono_second = hue == label_second;
+        flattern_mono = reshape(mono_second,pixel_count,1);
+        masked = flattern_cube(flattern_mono,:);
+        signature_second = mean(masked);
+
+ %       a(51:100,:) = label_second;
+
+ %       subplot 131;
+ %       imshow(label2rgb(a));
+ %       pause(0.00001);
+
+
+        stereo = mono + mono_second;
+        stereo = bwlabel(stereo);
+
+        regions_no = max(max(stereo));
+
+
+        if(regions_no == 1)
+            distance = mean(abs(signature-signature_second));
+            if(distance<similarity_treshold)
+                fprintf('[%ivs%i] MERGE!\n', label, label_second);
+                hue(hue==label_second) = label;
+                subplot 132;
+                imshow(label2rgb(hue));
+                pause(.125);
+            end
+        end
+%        pause(.25);
+    end
+
+
+end
+
+subplot 121;
+imshow(label2rgb(hue));
+title('Visum!');
+
+subplot 122;
+imshow(label2rgb(ground_truth));
+title('GT');
+
+
+imwrite(rgb_image,'visum.png');

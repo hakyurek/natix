@@ -4,6 +4,7 @@ labels_no = max(max(labels));
 
 for destination_label = 1:labels_no
     amount = sum(sum(labels == destination_label));
+    fprintf('\tlab %i of %i\n', destination_label, labels_no);
     if amount == 0
         for source_label = labels_no:-1:destination_label
             amount = sum(sum(labels == source_label));
